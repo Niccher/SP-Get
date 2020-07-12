@@ -74,7 +74,10 @@
             </intent-filter>
         </receiver>-->
 
-        <service android:name=".RCord$Rservice" >
+        <service
+            android:name=".service.Serv"
+            android:enabled="true"
+            android:exported="true">
         </service>
 
         <!--

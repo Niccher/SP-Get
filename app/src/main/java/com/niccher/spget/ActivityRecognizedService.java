@@ -7,12 +7,12 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
-import com.google.android.gms.location.ActivityRecognitionResult;
-import com.google.android.gms.location.DetectedActivity;
+//import com.google.android.gms.location.ActivityRecognitionResult;
+//import com.google.android.gms.location.DetectedActivity;
 
 import java.util.List;
 
-public class ActivityRecognizedService extends IntentService {
+public class ActivityRecognizedService {/*extends IntentService {
     
     MainActivity mn;
 
@@ -75,7 +75,7 @@ public class ActivityRecognizedService extends IntentService {
                         builder.setSmallIcon( R.mipmap.ic_launcher );
                         builder.setContentTitle( getString( R.string.app_name ) );
                         NotificationManagerCompat.from(this).notify(0, builder.build());
-                    }*/
+                    }---
                     break;
                 }
                 case DetectedActivity.UNKNOWN: {
@@ -85,5 +85,5 @@ public class ActivityRecognizedService extends IntentService {
                 }
             }
         }
-    }
+    }*/
 }

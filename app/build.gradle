@@ -5,8 +5,8 @@ android {
     buildToolsVersion "29.0.3"
     defaultConfig {
         applicationId "com.niccher.spget"
-        minSdkVersion 21
-        targetSdkVersion 29
+        minSdkVersion 19
+        targetSdkVersion 24
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -28,7 +28,7 @@ dependencies {
     androidTestImplementation 'androidx.test:runner:1.2.0'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
 
-    implementation 'com.google.android.gms:play-services-location:17.0.0'
+    //implementation 'com.google.android.gms:play-services-location:17.0.0'
     implementation 'gr.pantrif:easy-android-splash-screen:0.0.1'
 
     implementation 'com.github.aykuttasil:CallRecorder:1.5.0'

