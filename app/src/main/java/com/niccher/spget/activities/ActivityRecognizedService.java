@@ -1,4 +1,4 @@
-package com.niccher.spget;
+package com.niccher.spget.activities;
 
 import android.app.IntentService;
 import android.content.Intent;

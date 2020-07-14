@@ -1,17 +1,14 @@
-package com.niccher.spget;
+package com.niccher.spget.activities;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.ComponentName;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
-import android.graphics.Typeface;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 
+import com.niccher.spget.R;
 import com.niccher.spget.usables.Konstants;
 
 import gr.net.maroulis.library.EasySplashScreen;

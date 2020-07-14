@@ -1,4 +1,4 @@
-package com.niccher.spget;
+package com.niccher.spget.activities;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
@@ -6,11 +6,9 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
-import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -28,7 +26,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
-import com.niccher.spget.service.Serv;
+import com.niccher.spget.R;
 import com.niccher.spget.usables.Konstants;
 
 import java.io.File;
@@ -58,6 +56,8 @@ public class MainActivity extends AppCompatActivity {
     List<ApplicationInfo> aplis=null;
 
     Konstants kon;
+
+    Service Upladerfiles;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

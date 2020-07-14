@@ -18,7 +18,12 @@ allprojects {
     repositories {
         google()
         jcenter()
-        maven { url 'https://jitpack.io' }
+        maven {
+            url 'https://jitpack.io'
+        }
+        maven {
+            url "http://dl.bintray.com/lukaville/maven"
+        }
 
     }
 }
