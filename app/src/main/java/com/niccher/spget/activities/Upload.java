@@ -1,5 +1,6 @@
 package com.niccher.spget.activities;
 
+import android.content.Context;
 import android.util.Log;
 
 import com.niccher.spget.usables.Konstants;
@@ -15,6 +16,7 @@ public class Upload {
     String stamp, PdfID,flogs;
     Calendar cal=new GregorianCalendar();
     Konstants kon;
+    Context cnt;
 
     private void Postage(String targt){
         kon = new Konstants();
@@ -23,7 +25,7 @@ public class Upload {
             PdfID = UUID.randomUUID().toString();
             Thread.sleep(150);
             try {
-                new MultipartUploadRequest(getApplicationContext(), PdfID, upurl)
+                new MultipartUploadRequest(cnt, PdfID, upurl)
                         .addFileToUpload(targt, "pdf")
                         .addParameter("name", stamp.trim())
                         .setMaxRetries(10)
